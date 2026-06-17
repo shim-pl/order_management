@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}受注一覧{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>受注一覧</h1>
+  <div class="header-actions">
+    <button type="button" class="btn btn-secondary" onclick="toggleExportPanel()">↓ CSVエクスポート</button>
+    <a href="{{ url_for('order_new') }}" class="btn btn-primary">＋ 新規受注</a>
+  </div>
+</div>
+
+<div id="export-panel" class="export-panel hidden">
+  <div class="export-panel-title">CSVエクスポート フィルター条件</div>
+  <form id="export-form" action="{{ url_for('order_export') }}" method="get" class="export-filter-grid">
+    <div class="filter-field">
+      <label>管理No.（部分一致）</label>
+      <input type="text" name="f_control_no" placeholder="例：A-001">
+    </div>
+    <div class="filter-field">
+      <label>受注日（From）</label>
+      <input type="date" name="f_date_from">
+    </div>
+    <div class="filter-field">
+      <label>受注日（To）</label>
+      <input type="date" name="f_date_to">
+    </div>
+    <div class="filter-field">
+      <label>製品名（部分一致）</label>
+      <input type="text" name="f_product" list="export-product-list" placeholder="例：外気導入弁" autocomplete="off">
+      <datalist id="export-product-list">
+        {% for p in products %}<option value="{{ p.name }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="filter-field">
+      <label>色番（部分一致）</label>
+      <input type="text" name="f_color" list="export-color-list" placeholder="例：BK-001" autocomplete="off">
+      <datalist id="export-color-list">
+        {% for c in colors %}<option value="{{ c.color_code }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="filter-field filter-field-actions">
+      <button type="submit" class="btn btn-primary">↓ エクスポート実行</button>
+      <button type="button" class="btn btn-secondary" onclick="resetExportForm()">クリア</button>
+    </div>
+  </form>
+</div>
+
+<form class="filter-bar" method="get">
+  <div class="filter-group">
+    <label>ステータス</label>
+    <select name="status" onchange="this.form.submit()">
+      <option value="" {% if not status_filter %}selected{% endif %}>すべて</option>
+      <option value="進行中" {% if status_filter=='進行中' %}selected{% endif %}>進行中</option>
+      <option value="完了" {% if status_filter=='完了' %}selected{% endif %}>完了</option>
+      <option value="キャンセル" {% if status_filter=='キャンセル' %}selected{% endif %}>キャンセル</option>
+    </select>
+  </div>
+  <div class="filter-group search-group">
+    <input type="text" name="search" value="{{ search }}" placeholder="製品名・注文番号・管理Noで検索">
+    <button type="submit" class="btn btn-secondary">検索</button>
+    {% if search or status_filter %}
+      <a href="{{ url_for('order_list') }}" class="btn btn-link">クリア</a>
+    {% endif %}
+  </div>
+</form>
+
+<div class="table-wrap">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>管理No.</th>
+      <th>受注日</th>
+      <th>注文番号</th>
+      <th>製品名</th>
+      <th>ベース材</th>
+      <th>色番</th>
+      <th>受注数量</th>
+      <th>回答納品日／数量</th>
+      <th>納品進捗</th>
+      <th>ステータス</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    {% set pct = ((o.delivered_qty / o.order_quantity * 100) | int) if o.order_quantity > 0 else 0 %}
+    {% set order_plans = plans_map.get(o.id, []) %}
+    <tr>
+      <td>{{ o.control_no or '—' }}</td>
+      <td>{{ o.order_date or '—' }}</td>
+      <td>{{ o.order_number or '—' }}</td>
+      <td class="text-sm"><strong>{{ o.product_name }}</strong></td>
+      <td class="text-sm">{{ o.base_material or '—' }}</td>
+      <td>{{ o.color_code or '—' }}</td>
+      <td class="text-right">{{ o.order_quantity | commas }}</td>
+      <td class="plans-cell">
+        {% if order_plans %}
+          {% for p in order_plans %}
+            <span class="plan-line">{{ p.reply_date }}&emsp;{{ p.reply_quantity | commas }}個</span>
+          {% endfor %}
+        {% else %}
+          －
+        {% endif %}
+      </td>
+      <td class="progress-cell">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" style="width:{{ [pct,100]|min }}%"
+               data-status="{{ o.status }}"></div>
+        </div>
+        <span class="progress-label">{{ o.delivered_qty | commas }} / {{ o.order_quantity | commas }}</span>
+      </td>
+      <td><span class="badge badge-{{ o.status | status_class }}">{{ o.status }}</span></td>
+      <td><a href="{{ url_for('order_detail', order_id=o.id) }}" class="btn btn-sm btn-outline">詳細</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="empty-row">該当する受注がありません。</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<p class="total-count">{{ orders | length }} 件</p>
+
+<script>
+function toggleExportPanel() {
+  const panel = document.getElementById('export-panel');
+  panel.classList.toggle('hidden');
+}
+function resetExportForm() {
+  document.getElementById('export-form').reset();
+}
+</script>
+{% endblock %}

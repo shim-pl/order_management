@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}受注管理{% endblock %} | アンビテック TLC向け受注管理</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-brand">アンビテック TLC向け受注管理</div>
+  <div class="navbar-links">
+    <a href="{{ url_for('order_list') }}" class="{% if request.endpoint == 'order_list' %}active{% endif %}">受注一覧</a>
+    <a href="{{ url_for('order_new') }}" class="{% if request.endpoint in ('order_new','order_edit') %}active{% endif %}">新規受注</a>
+    <a href="{{ url_for('masters') }}" class="{% if request.endpoint == 'masters' %}active{% endif %}">マスタ管理</a>
+  </div>
+  {% if current_user.is_authenticated %}
+  <div class="navbar-user">
+    <span class="navbar-username">{{ current_user.username }}</span>
+    <a href="{{ url_for('logout') }}" class="navbar-logout">ログアウト</a>
+  </div>
+  {% endif %}
+</nav>
+
+<main class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal-box">
+    <p id="modal-message"></p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="modal-confirm">確認</button>
+      <button class="btn btn-secondary" id="modal-cancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

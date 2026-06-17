@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ログイン | アンビテック TLC向け受注管理</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+<div class="login-wrap">
+  <div class="login-card">
+    <h1 class="login-title">アンビテック TLC向け受注管理</h1>
+    <p class="login-subtitle">ログインしてください</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" class="login-form">
+      <div class="form-group">
+        <label>ユーザー名</label>
+        <input type="text" name="username" required autofocus autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>パスワード</label>
+        <input type="password" name="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary login-submit">ログイン</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

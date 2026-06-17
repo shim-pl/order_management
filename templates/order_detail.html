@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}受注詳細 #{{ order.id }}{% endblock %}
+{% block content %}
+{% set pct = ((delivered / order.order_quantity * 100) | int) if order.order_quantity > 0 else 0 %}
+{% set diff = delivered - order.order_quantity %}
+
+<div class="page-header">
+  <h1>受注詳細
+    <span class="badge badge-{{ order.status | status_class }} badge-lg">{{ order.status }}</span>
+  </h1>
+  <div class="header-actions">
+    <a href="{{ url_for('order_edit', order_id=order.id) }}" class="btn btn-outline">編集</a>
+    <a href="{{ url_for('order_list') }}" class="btn btn-secondary">← 一覧</a>
+  </div>
+</div>
+
+<!-- 基本情報 -->
+<section class="card">
+  <h2 class="card-title">基本情報</h2>
+  <div class="info-grid">
+    <div class="info-item"><span class="info-label">管理No.</span><span>{{ order.control_no or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">受注日</span><span>{{ order.order_date or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">注文番号</span><span>{{ order.order_number or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">製品名</span><span><strong>{{ order.product_name }}</strong></span></div>
+    <div class="info-item"><span class="info-label">ベース材</span><span>{{ order.base_material or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">色番</span><span>{{ order.color_code or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">希望納期</span>
+      <span>{{ order.desired_delivery or '—' }}</span>
+    </div>
+    <div class="info-item"><span class="info-label">受注数量</span><span><strong>{{ order.order_quantity | commas }}</strong></span></div>
+    {% if order.material_delivery_memo %}
+    <div class="info-item info-item-full"><span class="info-label">材料納期メモ</span><span>{{ order.material_delivery_memo }}</span></div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- 納品進捗 -->
+<section class="card">
+  <h2 class="card-title">納品進捗</h2>
+  <div class="progress-summary">
+    <div class="progress-bar-wrap progress-bar-lg">
+      <div class="progress-bar" style="width:{{ [pct,100]|min }}%"
+           data-status="{{ order.status }}"></div>
+    </div>
+    <div class="progress-numbers">
+      <span>納品済: <strong>{{ delivered | commas }}</strong></span>
+      <span>受注数: <strong>{{ order.order_quantity | commas }}</strong></span>
+      <span>達成率: <strong>{{ pct }}%</strong></span>
+      {% if diff != 0 %}
+        <span class="{% if diff < 0 %}text-danger{% else %}text-success{% endif %}">
+          差異: <strong>{{ diff | commas }}</strong>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ステータス変更ボタン -->
+  <div class="status-actions">
+    {% if order.status == '進行中' %}
+      <button class="btn btn-success"
+        onclick="confirmAction('手動完了にしますか？{% if diff < 0 %}（納品数量が受注数量に達していません）{% endif %}',
+          document.getElementById('form-complete'))">
+        完了にする
+      </button>
+      <button class="btn btn-warning"
+        onclick="confirmAction('この受注をキャンセルしますか？',
+          document.getElementById('form-cancel'))">
+        キャンセル
+      </button>
+    {% elif order.status in ('完了', 'キャンセル') %}
+      <button class="btn btn-outline"
+        onclick="confirmAction('進行中に戻しますか？',
+          document.getElementById('form-reopen'))">
+        進行中に戻す
+      </button>
+    {% endif %}
+    <form id="form-complete" method="post" action="{{ url_for('order_complete', order_id=order.id) }}" class="hidden">
+      <input type="hidden" name="operator" value="">
+    </form>
+    <form id="form-cancel" method="post" action="{{ url_for('order_cancel', order_id=order.id) }}" class="hidden">
+      <input type="hidden" name="operator" value="">
+    </form>
+    <form id="form-reopen" method="post" action="{{ url_for('order_reopen', order_id=order.id) }}" class="hidden">
+      <input type="hidden" name="operator" value="">
+    </form>
+  </div>
+</section>
+
+<!-- 納品スケジュール -->
+<section class="card">
+  <h2 class="card-title">納品スケジュール（回答納期）</h2>
+  {% if plans %}
+  <table class="data-table">
+    <thead><tr><th>回答納期</th><th class="text-right">回答数量</th><th></th></tr></thead>
+    <tbody>
+      {% for p in plans %}
+      <tr id="plan-row-{{ p.id }}">
+        <!-- 表示モード -->
+        <td class="plan-view-{{ p.id }}">{{ p.reply_date or '—' }}</td>
+        <td class="plan-view-{{ p.id }} text-right">{{ p.reply_quantity | commas }}</td>
+        <td class="plan-view-{{ p.id }}">
+          <button type="button" class="btn btn-sm btn-outline" onclick="startInlineEdit('plan', {{ p.id }})">編集</button>
+          <form method="post" action="{{ url_for('plan_delete', order_id=order.id, plan_id=p.id) }}"
+                style="display:inline"
+                onsubmit="return confirm('この納品スケジュールを削除しますか？')">
+            <button type="submit" class="btn btn-sm btn-danger-outline">削除</button>
+          </form>
+        </td>
+        <!-- 編集モード -->
+        <td class="plan-edit-{{ p.id }} hidden" colspan="3">
+          <form method="post" action="{{ url_for('plan_edit', order_id=order.id, plan_id=p.id) }}"
+                class="inline-edit-form">
+            <input type="date" name="reply_date" value="{{ p.reply_date or '' }}" required>
+            <input type="number" name="reply_quantity" value="{{ p.reply_quantity }}" min="0" required style="width:110px">
+            <input type="text" name="operator" placeholder="記録者" style="width:90px">
+            <button type="submit" class="btn btn-sm btn-primary">保存</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelInlineEdit('plan', {{ p.id }})">取消</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      <tr class="table-footer">
+        <td><strong>合計</strong></td>
+        <td class="text-right"><strong>{{ planned | commas }}</strong></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">納品スケジュールはまだ登録されていません。</p>
+  {% endif %}
+
+  {% if order.status == '進行中' %}
+  <details class="add-form-toggle">
+    <summary>＋ 納品スケジュールを追加</summary>
+    <form method="post" action="{{ url_for('plan_add', order_id=order.id) }}" class="inline-form">
+      <input type="date" name="reply_date" required>
+      <input type="number" name="reply_quantity" placeholder="数量" min="1" required>
+      <input type="text" name="operator" placeholder="記録者">
+      <button type="submit" class="btn btn-primary btn-sm">追加</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<!-- 納品実績 -->
+<section class="card">
+  <h2 class="card-title">納品実績</h2>
+  {% if records %}
+  <table class="data-table">
+    <thead><tr><th>金型番号</th><th>実績納期</th><th class="text-right">実績数量</th><th>登録日時</th><th></th></tr></thead>
+    <tbody>
+      {% for r in records %}
+      <tr id="rec-row-{{ r.id }}">
+        <!-- 表示モード -->
+        <td class="rec-view-{{ r.id }}">{{ r.mold_number or '—' }}</td>
+        <td class="rec-view-{{ r.id }}">{{ r.actual_date or '—' }}</td>
+        <td class="rec-view-{{ r.id }} text-right">{{ r.actual_quantity | commas }}</td>
+        <td class="rec-view-{{ r.id }} text-muted">{{ r.registered_at }}</td>
+        <td class="rec-view-{{ r.id }}">
+          <button type="button" class="btn btn-sm btn-outline" onclick="startInlineEdit('rec', {{ r.id }})">編集</button>
+          <form method="post" action="{{ url_for('record_delete', order_id=order.id, rec_id=r.id) }}"
+                style="display:inline"
+                onsubmit="return confirm('この納品実績を削除しますか？')">
+            <button type="submit" class="btn btn-sm btn-danger-outline">削除</button>
+          </form>
+        </td>
+        <!-- 編集モード -->
+        <td class="rec-edit-{{ r.id }} hidden" colspan="5">
+          <form method="post" action="{{ url_for('record_edit', order_id=order.id, rec_id=r.id) }}"
+                class="inline-edit-form">
+            <input type="text" name="mold_number" value="{{ r.mold_number or '' }}" placeholder="金型番号" style="width:110px">
+            <input type="date" name="actual_date" value="{{ r.actual_date or '' }}" required>
+            <input type="number" name="actual_quantity" value="{{ r.actual_quantity }}" min="0" required style="width:110px">
+            <input type="text" name="operator" placeholder="記録者" style="width:90px">
+            <button type="submit" class="btn btn-sm btn-primary">保存</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelInlineEdit('rec', {{ r.id }})">取消</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      <tr class="table-footer">
+        <td></td>
+        <td><strong>合計</strong></td>
+        <td class="text-right"><strong>{{ delivered | commas }}</strong></td>
+        <td></td><td></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">納品実績はまだ登録されていません。</p>
+  {% endif %}
+
+  {% if order.status == '進行中' %}
+  <details class="add-form-toggle">
+    <summary>＋ 納品実績を入力</summary>
+    <form method="post" action="{{ url_for('record_add', order_id=order.id) }}" class="inline-form">
+      <input type="text" name="mold_number" placeholder="金型番号（任意）" style="width:130px">
+      <input type="date" name="actual_date" required>
+      <input type="number" name="actual_quantity" placeholder="数量" min="1" required>
+      <input type="text" name="operator" placeholder="記録者">
+      <button type="submit" class="btn btn-primary btn-sm">登録</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<!-- 受注削除 -->
+<div class="order-delete-zone">
+  <form id="form-order-delete" method="post" action="{{ url_for('order_delete', order_id=order.id) }}" class="hidden"></form>
+  <button type="button" class="btn btn-delete-order" onclick="confirmOrderDelete()">この受注を削除</button>
+</div>
+<script>
+function confirmOrderDelete() {
+  confirmAction(
+    '管理No.{{ order.control_no or order.id }}（製品名：{{ order.product_name }}）を完全に削除します。この操作は取り消せません。本当に削除しますか？',
+    document.getElementById('form-order-delete')
+  );
+}
+</script>
+
+<!-- 変更履歴 -->
+<section class="card">
+  <h2 class="card-title">変更履歴</h2>
+  {% if logs %}
+  <table class="data-table">
+    <thead><tr><th>日時</th><th>変更種別</th><th>内容</th><th>記録者</th></tr></thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="text-muted">{{ l.changed_at }}</td>
+        <td><span class="badge badge-log">{{ l.change_type }}</span></td>
+        <td>{{ l.change_detail }}</td>
+        <td>{{ l.operator or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">変更履歴はまだありません。</p>
+  {% endif %}
+</section>
+
+<script>
+function startInlineEdit(type, id) {
+  document.querySelectorAll(`.${type}-view-${id}`).forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll(`.${type}-edit-${id}`).forEach(el => el.classList.remove('hidden'));
+}
+function cancelInlineEdit(type, id) {
+  document.querySelectorAll(`.${type}-view-${id}`).forEach(el => el.classList.remove('hidden'));
+  document.querySelectorAll(`.${type}-edit-${id}`).forEach(el => el.classList.add('hidden'));
+}
+</script>
+{% endblock %}

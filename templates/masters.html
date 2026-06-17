@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}マスタ管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>マスタ管理</h1>
+</div>
+
+<div class="masters-grid">
+
+  <!-- 製品マスタ -->
+  <section class="card">
+    <h2 class="card-title">製品マスタ</h2>
+    <table class="data-table">
+      <thead>
+        <tr><th>品名</th><th>ベース材</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr id="product-row-{{ p.id }}">
+          <td>
+            <span class="view-mode">{{ p.name }}</span>
+            <input class="edit-mode hidden" type="text" name="name" value="{{ p.name }}">
+          </td>
+          <td>
+            <span class="view-mode">{{ p.base_material or '—' }}</span>
+            <input class="edit-mode hidden" type="text" name="base_material" value="{{ p.base_material or '' }}">
+          </td>
+          <td class="action-cell">
+            <div class="view-mode">
+              <button class="btn btn-sm btn-outline" onclick="startEdit('product-row-{{ p.id }}')">編集</button>
+              <form method="post" action="{{ url_for('product_delete', pid=p.id) }}" style="display:inline"
+                    onsubmit="return confirm('「{{ p.name }}」を削除しますか？')">
+                <button type="submit" class="btn btn-sm btn-danger-outline">削除</button>
+              </form>
+            </div>
+            <div class="edit-mode hidden">
+              <form method="post" action="{{ url_for('product_edit', pid=p.id) }}" id="product-edit-form-{{ p.id }}">
+                <button type="submit" class="btn btn-sm btn-primary">保存</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit('product-row-{{ p.id }}')">取消</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="empty-row">製品マスタが登録されていません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <details class="add-form-toggle">
+      <summary>＋ 製品を追加</summary>
+      <form method="post" action="{{ url_for('product_add') }}" class="inline-form">
+        <input type="text" name="name" placeholder="品名" required>
+        <input type="text" name="base_material" placeholder="ベース材">
+        <button type="submit" class="btn btn-primary btn-sm">追加</button>
+      </form>
+    </details>
+
+    <div class="csv-import-area">
+      <span class="csv-label">CSVインポート：</span>
+      <form method="post" action="{{ url_for('product_import') }}"
+            enctype="multipart/form-data" class="csv-import-form">
+        <label class="csv-file-label">
+          <input type="file" name="csv_file" accept=".csv" required
+                 onchange="updateFileName(this, 'product-csv-name')">
+          <span class="btn btn-sm btn-secondary">ファイルを選択</span>
+        </label>
+        <span id="product-csv-name" class="csv-filename">未選択</span>
+        <button type="submit" class="btn btn-sm btn-primary">インポート</button>
+      </form>
+      <details class="csv-format-hint">
+        <summary>CSVフォーマット</summary>
+        <pre class="csv-sample">品名,ベース材
+外気導入弁4号,PP</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 色材マスタ -->
+  <section class="card">
+    <h2 class="card-title">色材マスタ</h2>
+    <table class="data-table">
+      <thead><tr><th>色番コード</th><th></th></tr></thead>
+      <tbody>
+        {% for c in colors %}
+        <tr>
+          <td>{{ c.color_code }}</td>
+          <td>
+            <form method="post" action="{{ url_for('color_delete', cid=c.id) }}" style="display:inline"
+                  onsubmit="return confirm('「{{ c.color_code }}」を削除しますか？')">
+              <button type="submit" class="btn btn-sm btn-danger-outline">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="empty-row">色材マスタが登録されていません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <details class="add-form-toggle">
+      <summary>＋ 色材を追加</summary>
+      <form method="post" action="{{ url_for('color_add') }}" class="inline-form">
+        <input type="text" name="color_code" placeholder="色番コード" required>
+        <button type="submit" class="btn btn-primary btn-sm">追加</button>
+      </form>
+    </details>
+
+    <div class="csv-import-area">
+      <span class="csv-label">CSVインポート：</span>
+      <form method="post" action="{{ url_for('color_import') }}"
+            enctype="multipart/form-data" class="csv-import-form">
+        <label class="csv-file-label">
+          <input type="file" name="csv_file" accept=".csv" required
+                 onchange="updateFileName(this, 'color-csv-name')">
+          <span class="btn btn-sm btn-secondary">ファイルを選択</span>
+        </label>
+        <span id="color-csv-name" class="csv-filename">未選択</span>
+        <button type="submit" class="btn btn-sm btn-primary">インポート</button>
+      </form>
+      <details class="csv-format-hint">
+        <summary>CSVフォーマット</summary>
+        <pre class="csv-sample">色番コード
+BK-001</pre>
+      </details>
+    </div>
+  </section>
+
+</div>
+
+<!-- ユーザー管理 -->
+<section class="card">
+  <h2 class="card-title">ユーザー管理</h2>
+  <table class="data-table">
+    <thead>
+      <tr><th>ユーザー名</th><th>登録日時</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr id="user-row-{{ u.id }}">
+        <td><strong>{{ u.username }}</strong>{% if u.id == current_user.id %} <span class="badge badge-log">あなた</span>{% endif %}</td>
+        <td class="text-muted">{{ u.created_at }}</td>
+        <td class="action-cell">
+          <div class="view-mode">
+            <button class="btn btn-sm btn-outline" onclick="startEdit('user-row-{{ u.id }}')">パスワード変更</button>
+            {% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('user_delete', uid=u.id) }}" style="display:inline"
+                  onsubmit="return confirm('ユーザー「{{ u.username }}」を削除しますか？')">
+              <button type="submit" class="btn btn-sm btn-danger-outline">削除</button>
+            </form>
+            {% endif %}
+          </div>
+          <div class="edit-mode hidden">
+            <form method="post" action="{{ url_for('user_change_password', uid=u.id) }}" class="inline-edit-form">
+              <input type="password" name="password" placeholder="新しいパスワード（8文字以上）" minlength="8" required style="width:200px">
+              <button type="submit" class="btn btn-sm btn-primary">保存</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit('user-row-{{ u.id }}')">取消</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="empty-row">ユーザーが登録されていません。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <details class="add-form-toggle">
+    <summary>＋ ユーザーを追加</summary>
+    <form method="post" action="{{ url_for('user_add') }}" class="inline-form">
+      <input type="text" name="username" placeholder="ユーザー名" required autocomplete="off">
+      <input type="password" name="password" placeholder="パスワード（8文字以上）" minlength="8" required autocomplete="new-password">
+      <button type="submit" class="btn btn-primary btn-sm">追加</button>
+    </form>
+  </details>
+</section>
+
+<script>
+function updateFileName(input, spanId) {
+  const span = document.getElementById(spanId);
+  span.textContent = input.files.length ? input.files[0].name : '未選択';
+}
+function startEdit(rowId) {
+  const row = document.getElementById(rowId);
+  row.querySelectorAll('.view-mode').forEach(el => el.classList.add('hidden'));
+  row.querySelectorAll('.edit-mode').forEach(el => el.classList.remove('hidden'));
+  // フォームのinputをedit formに移動
+  const form = row.querySelector('form[id^="product-edit-form"]');
+  if (form) {
+    row.querySelectorAll('input.edit-mode').forEach(input => form.appendChild(input));
+  }
+}
+function cancelEdit(rowId) {
+  const row = document.getElementById(rowId);
+  row.querySelectorAll('.view-mode').forEach(el => el.classList.remove('hidden'));
+  row.querySelectorAll('.edit-mode').forEach(el => el.classList.add('hidden'));
+}
+</script>
+{% endblock %}

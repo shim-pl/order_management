@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{% if order %}受注編集{% else %}新規受注{% endif %}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{% if order %}受注編集{% else %}新規受注登録{% endif %}</h1>
+  {% if order %}
+  <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-secondary">← 詳細へ戻る</a>
+  {% else %}
+  <a href="{{ url_for('order_list') }}" class="btn btn-secondary">← 一覧へ戻る</a>
+  {% endif %}
+</div>
+
+<form method="post" class="form-card">
+  <div class="form-grid">
+    <div class="form-group">
+      <label>管理No.</label>
+      <input type="text" name="control_no" value="{{ order.control_no if order else '' }}">
+    </div>
+    <div class="form-group">
+      <label>受注日</label>
+      <input type="date" name="order_date" value="{{ order.order_date if order else '' }}">
+    </div>
+    <div class="form-group">
+      <label>注文番号</label>
+      <input type="text" name="order_number" value="{{ order.order_number if order else '' }}">
+    </div>
+    <div class="form-group">
+      <label>製品名 <span class="required">*</span></label>
+      <input type="text" name="product_name" id="product_name" required
+             value="{{ order.product_name if order else '' }}"
+             list="product-list" autocomplete="off">
+      <datalist id="product-list">
+        {% for p in products %}<option value="{{ p.name }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="form-group">
+      <label>ベース材</label>
+      <input type="text" name="base_material" id="base_material"
+             value="{{ order.base_material if order else '' }}">
+    </div>
+    <div class="form-group">
+      <label>色番</label>
+      <input type="text" name="color_code" value="{{ order.color_code if order else '' }}"
+             list="color-list" autocomplete="off">
+      <datalist id="color-list">
+        {% for c in colors %}<option value="{{ c.color_code }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="form-group">
+      <label>希望納期</label>
+      <input type="date" name="desired_delivery" value="{{ order.desired_delivery if order else '' }}">
+    </div>
+    <div class="form-group">
+      <label>受注数量 <span class="required">*</span></label>
+      <input type="number" name="order_quantity" required min="0"
+             value="{{ order.order_quantity if order else '' }}">
+    </div>
+    <div class="form-group form-group-full">
+      <label>材料納期メモ</label>
+      <textarea name="material_delivery_memo" rows="2">{{ order.material_delivery_memo if order else '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>記録者</label>
+      <input type="text" name="operator" placeholder="名前を入力">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{% if order %}更新{% else %}登録{% endif %}</button>
+    {% if order %}
+    <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-secondary">キャンセル</a>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+// 製品名選択時にベース材を自動入力
+const productInput = document.getElementById('product_name');
+const baseMaterialInput = document.getElementById('base_material');
+let productData = [];
+fetch('/api/products').then(r=>r.json()).then(data => { productData = data; });
+productInput.addEventListener('change', () => {
+  const found = productData.find(p => p.name === productInput.value);
+  if (found && found.base_material) baseMaterialInput.value = found.base_material;
+});
+</script>
+{% endblock %}
