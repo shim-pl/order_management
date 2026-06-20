@@ -6,12 +6,16 @@ from flask_login import (
 from werkzeug.security import check_password_hash
 from database import get_db, init_db
 from datetime import date
+import os
 import json
 import csv
 import io
 
 app = Flask(__name__)
-app.secret_key = "order-management-secret-key"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-only-secret-key-change-in-production")
+
+# gunicorn 起動時も含め、モジュール読み込み時に DB を初期化する
+init_db()
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -802,5 +806,4 @@ def _log(conn, order_id, change_type, detail, operator):
 
 
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000, debug=False)
