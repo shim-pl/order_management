@@ -209,3 +209,71 @@ body { font-family: "Noto Sans JP", "Yu Gothic", sans-serif; background: var(--b
 /* ── Utility ── */
 .hidden { display: none !important; }
 .empty-note { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+
+/* ── Responsive: tablet (~900px) ── */
+@media (max-width: 900px) {
+  .container { padding: 16px 12px; }
+  .navbar { padding: 0 12px; gap: 16px; }
+  .search-group input { width: 200px; }
+  /* カード内のテーブルは横スクロール可能に */
+  .card { overflow-x: auto; }
+}
+
+/* ── Responsive: smartphone (~600px) ── */
+@media (max-width: 600px) {
+  body { font-size: 13px; }
+
+  /* ナビバー: 2段組みに折り返し */
+  .navbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px 16px; }
+  .navbar-brand { font-size: 14px; flex: 1 1 auto; }
+  .navbar-user { margin-left: 0; order: 2; }
+  .navbar-links { order: 3; width: 100%; justify-content: space-around; }
+  .navbar-links a { padding: 8px 10px; flex: 1; text-align: center; }
+
+  .container { padding: 12px 8px; }
+  .page-header h1 { font-size: 18px; }
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; justify-content: center; }
+
+  /* フィルターバー: 縦積み */
+  .filter-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .filter-group { width: 100%; }
+  .search-group { flex-wrap: wrap; }
+  .search-group input { width: 100%; flex: 1 1 100%; }
+
+  /* エクスポートパネル: 縦積み */
+  .export-filter-grid { flex-direction: column; align-items: stretch; }
+  .filter-field-actions { padding-top: 4px; }
+  .filter-field-actions .btn { flex: 1; justify-content: center; }
+
+  /* テーブル: フォント・余白を圧縮 */
+  .data-table th, .data-table td { padding: 8px 8px; font-size: 12px; }
+  .progress-cell { min-width: 120px; }
+  .plans-cell { min-width: 150px; }
+
+  /* タップしやすいボタンサイズ */
+  .btn { padding: 9px 14px; }
+  .btn-sm { padding: 7px 10px; }
+
+  /* iOSでの自動ズームを防ぐ（フォーム入力時） */
+  .form-group input, .form-group select, .form-group textarea,
+  .filter-group select, .filter-group input,
+  .inline-form input, .inline-edit-form input, .filter-field input {
+    font-size: 16px;
+  }
+
+  .form-grid { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: 1fr 1fr; }
+  .form-actions { flex-direction: column; }
+  .form-actions .btn { justify-content: center; }
+
+  /* インラインフォームの入力を全幅に */
+  .inline-form { flex-direction: column; align-items: stretch; }
+  .inline-form input { width: 100%; }
+  .inline-form .btn { justify-content: center; }
+
+  .modal-box { padding: 20px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+
+  .status-actions .btn { flex: 1; justify-content: center; }
+}
