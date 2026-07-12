@@ -32,8 +32,12 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return None
     conn = get_db()
-    row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
     conn.close()
     return User(row) if row else None
 

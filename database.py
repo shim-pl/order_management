@@ -20,14 +20,21 @@ if USE_POSTGRES:
     import psycopg2.extras
 
     def _to_pg(sql, params=None):
-        """SQLite 構文を PostgreSQL 構文に変換する。"""
+        """SQLite 構文を PostgreSQL 構文に変換する。
+
+        パラメータの型に応じて置換を切り替える。無条件に置換すると
+        TO_CHAR(..., 'HH24:MI:SS') のようなリテラル内の「:xx」まで
+        壊してしまうため、パラメータ無しのSQLには手を付けない。
+        """
         if sql.strip().upper().startswith("PRAGMA"):
             return None, None
         sql = sql.replace("SELECT last_insert_rowid()", "SELECT lastval()")
-        # 名前付きパラメータ :name → %(name)s (? 変換より先に処理)
-        sql = re.sub(r":(\w+)", r"%(\1)s", sql)
-        # 位置パラメータ ? → %s
-        sql = sql.replace("?", "%s")
+        if isinstance(params, dict):
+            # 名前付きパラメータ :name → %(name)s
+            sql = re.sub(r":(\w+)", r"%(\1)s", sql)
+        elif params is not None:
+            # 位置パラメータ ? → %s
+            sql = sql.replace("?", "%s")
         return sql, params
 
     class _PgResult:
