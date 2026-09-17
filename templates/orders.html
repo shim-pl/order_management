@@ -56,23 +56,23 @@
     </select>
   </div>
   <div class="filter-group search-group">
-    <input type="text" name="search" value="{{ search }}" placeholder="製品名・注文番号・管理Noで検索">
+    <input type="text" name="search" value="{{ search }}"
+           placeholder="製品名・注文番号・管理No.・回答納品日で検索">
     <button type="submit" class="btn btn-secondary">検索</button>
-    {% if search or status_filter %}
+    {% if search or status_filter != '進行中' %}
       <a href="{{ url_for('order_list') }}" class="btn btn-link">クリア</a>
     {% endif %}
   </div>
 </form>
 
 <div class="table-wrap">
-<table class="data-table">
+<table class="data-table order-table">
   <thead>
     <tr>
       <th>管理No.</th>
       <th>受注日</th>
       <th>注文番号</th>
       <th>製品名</th>
-      <th>ベース材</th>
       <th>色番</th>
       <th>受注数量</th>
       <th>回答納品日／数量</th>
@@ -87,16 +87,15 @@
     {% set order_plans = plans_map.get(o.id, []) %}
     <tr>
       <td>{{ o.control_no or '—' }}</td>
-      <td>{{ o.order_date or '—' }}</td>
+      <td>{{ o.order_date | ymd or '—' }}</td>
       <td>{{ o.order_number or '—' }}</td>
       <td class="text-sm"><strong>{{ o.product_name }}</strong></td>
-      <td class="text-sm">{{ o.base_material or '—' }}</td>
       <td>{{ o.color_code or '—' }}</td>
       <td class="text-right">{{ o.order_quantity | commas }}</td>
       <td class="plans-cell">
         {% if order_plans %}
           {% for p in order_plans %}
-            <span class="plan-line">{{ p.reply_date }}&emsp;{{ p.reply_quantity | commas }}個</span>
+            <span class="plan-line">{{ p.reply_date | ymd }}&emsp;{{ p.reply_quantity | commas }}個</span>
           {% endfor %}
         {% else %}
           －
@@ -113,7 +112,7 @@
       <td><a href="{{ url_for('order_detail', order_id=o.id) }}" class="btn btn-sm btn-outline">詳細</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="11" class="empty-row">該当する受注がありません。</td></tr>
+    <tr><td colspan="10" class="empty-row">該当する受注がありません。</td></tr>
     {% endfor %}
   </tbody>
 </table>

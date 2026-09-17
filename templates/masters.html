@@ -139,7 +139,7 @@ BK-001</pre>
       {% for u in users %}
       <tr id="user-row-{{ u.id }}">
         <td><strong>{{ u.username }}</strong>{% if u.id == current_user.id %} <span class="badge badge-log">あなた</span>{% endif %}</td>
-        <td class="text-muted">{{ u.created_at }}</td>
+        <td class="text-muted">{{ u.created_at | ymd }}</td>
         <td class="action-cell">
           <div class="view-mode">
             <button class="btn btn-sm btn-outline" onclick="startEdit('user-row-{{ u.id }}')">パスワード変更</button>

@@ -84,6 +84,23 @@ def commas(value):
         return value
 
 
+def fmt_ymd(value):
+    """'2026-10-03' を '2026/10/03' 形式にする。日時は日付部分のみ変換する。
+
+    <input type="date"> の値は ISO 形式のままである必要があるため、
+    表示用のテンプレートフィルタとしてのみ使用する。
+    """
+    if not value:
+        return value
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})(.*)$", str(value))
+    if not m:
+        return value
+    return f"{m.group(1)}/{m.group(2)}/{m.group(3)}{m.group(4)}"
+
+
+app.add_template_filter(fmt_ymd, "ymd")
+
+
 @app.context_processor
 def inject_today():
     return {"today": date.today().isoformat()}
@@ -157,7 +174,8 @@ def parse_quantity(raw, field_label="数量", allow_zero=True):
 @app.route("/")
 @login_required
 def order_list():
-    status_filter = request.args.get("status", "")
+    # 初期表示は「進行中」。「すべて」を選ぶと status='' が渡る
+    status_filter = request.args.get("status", "進行中")
     search = request.args.get("search", "")
     conn = get_db()
     query = """
@@ -172,8 +190,17 @@ def order_list():
         query += " AND o.status = :status"
         params["status"] = status_filter
     if search:
-        query += " AND (o.product_name LIKE :s OR o.order_number LIKE :s OR o.control_no LIKE :s)"
+        query += """
+            AND (o.product_name LIKE :s
+                 OR o.order_number LIKE :s
+                 OR o.control_no LIKE :s
+                 OR EXISTS (SELECT 1 FROM delivery_plans dp
+                            WHERE dp.order_id = o.id AND dp.reply_date LIKE :d))
+        """
         params["s"] = f"%{search}%"
+        # 回答納品日は DB に 'YYYY-MM-DD' で入っているため、
+        # 画面表示どおり '2026/10/03' と入力されても一致させる
+        params["d"] = f"%{search.strip().replace('/', '-')}%"
     query += " GROUP BY o.id ORDER BY o.id DESC"
     orders = conn.execute(query, params).fetchall()
 
@@ -207,6 +234,12 @@ def order_new():
     conn = get_db()
     if request.method == "POST":
         f = request.form
+        try:
+            order_qty = parse_quantity(f.get("order_quantity"), "受注数量")
+        except ValueError as e:
+            conn.close()
+            flash(str(e), "danger")
+            return redirect(url_for("order_new"))
         conn.execute("""
             INSERT INTO orders (control_no, order_date, order_number, product_name,
                 base_material, color_code, material_delivery_memo,
@@ -214,7 +247,7 @@ def order_new():
             VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (f["control_no"], f["order_date"], f["order_number"], f["product_name"],
               f["base_material"], f["color_code"], f["material_delivery_memo"],
-              f["desired_delivery"], int(f["order_quantity"] or 0), "進行中"))
+              f["desired_delivery"], order_qty, "進行中"))
         conn.commit()
         order_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         _log(conn, order_id, "受注登録", f"製品: {f['product_name']}", f.get("operator", ""))
@@ -264,6 +297,12 @@ def order_edit(order_id):
         return redirect(url_for("order_list"))
     if request.method == "POST":
         f = request.form
+        try:
+            order_qty = parse_quantity(f.get("order_quantity"), "受注数量")
+        except ValueError as e:
+            conn.close()
+            flash(str(e), "danger")
+            return redirect(url_for("order_edit", order_id=order_id))
         old = dict(order)
         conn.execute("""
             UPDATE orders SET control_no=?, order_date=?, order_number=?, product_name=?,
@@ -272,14 +311,19 @@ def order_edit(order_id):
             WHERE id=?
         """, (f["control_no"], f["order_date"], f["order_number"], f["product_name"],
               f["base_material"], f["color_code"], f["material_delivery_memo"],
-              f["desired_delivery"], int(f["order_quantity"] or 0), order_id))
+              f["desired_delivery"], order_qty, order_id))
         conn.commit()
         changes = []
         for key, label in [("product_name", "製品名"), ("order_quantity", "受注数量"),
                             ("desired_delivery", "希望納期"), ("color_code", "色番"),
                             ("base_material", "ベース材")]:
-            new_val = f.get(key, "")
-            old_val = str(old.get(key) or "")
+            if key == "order_quantity":
+                new_val, old_val = f"{order_qty:,}", f"{int(old.get(key) or 0):,}"
+            else:
+                new_val = f.get(key, "")
+                old_val = str(old.get(key) or "")
+                if key == "desired_delivery":
+                    new_val, old_val = fmt_ymd(new_val), fmt_ymd(old_val)
             if new_val != old_val:
                 changes.append(f"{label}: {old_val}→{new_val}")
         if changes:
@@ -311,7 +355,7 @@ def plan_add(order_id):
                  (order_id, f["reply_date"], qty))
     conn.commit()
     _log(conn, order_id, "納品計画追加",
-         f"回答納期: {f['reply_date']} 数量: {qty:,}", f.get("operator", ""))
+         f"回答納期: {fmt_ymd(f['reply_date'])} 数量: {qty:,}", f.get("operator", ""))
     conn.commit()
     conn.close()
     return redirect(url_for("order_detail", order_id=order_id))
@@ -331,7 +375,7 @@ def plan_edit(order_id, plan_id):
                  (f["reply_date"], qty, plan_id, order_id))
     conn.commit()
     _log(conn, order_id, "納品計画編集",
-         f"計画ID:{plan_id} 回答納期:{f['reply_date']} 数量:{qty:,}",
+         f"計画ID:{plan_id} 回答納期:{fmt_ymd(f['reply_date'])} 数量:{qty:,}",
          f.get("operator", ""))
     conn.commit()
     conn.close()
@@ -369,7 +413,7 @@ def record_add(order_id):
         (order_id, mold or None, f["actual_date"], qty))
     conn.commit()
     _log(conn, order_id, "納品実績入力",
-         f"金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{qty:,}", f.get("operator", ""))
+         f"金型:{mold or '—'} 実績納期:{fmt_ymd(f['actual_date'])} 数量:{qty:,}", f.get("operator", ""))
     conn.commit()
 
     # 合計が受注数量と一致したら自動完了
@@ -403,7 +447,7 @@ def record_edit(order_id, rec_id):
         (mold or None, f["actual_date"], qty, rec_id, order_id))
     conn.commit()
     _log(conn, order_id, "納品実績編集",
-         f"実績ID:{rec_id} 金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{qty:,}",
+         f"実績ID:{rec_id} 金型:{mold or '—'} 実績納期:{fmt_ymd(f['actual_date'])} 数量:{qty:,}",
          f.get("operator", ""))
     conn.commit()
 

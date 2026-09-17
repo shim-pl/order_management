@@ -19,13 +19,13 @@
   <h2 class="card-title">基本情報</h2>
   <div class="info-grid">
     <div class="info-item"><span class="info-label">管理No.</span><span>{{ order.control_no or '—' }}</span></div>
-    <div class="info-item"><span class="info-label">受注日</span><span>{{ order.order_date or '—' }}</span></div>
+    <div class="info-item"><span class="info-label">受注日</span><span>{{ order.order_date | ymd or '—' }}</span></div>
     <div class="info-item"><span class="info-label">注文番号</span><span>{{ order.order_number or '—' }}</span></div>
     <div class="info-item"><span class="info-label">製品名</span><span><strong>{{ order.product_name }}</strong></span></div>
     <div class="info-item"><span class="info-label">ベース材</span><span>{{ order.base_material or '—' }}</span></div>
     <div class="info-item"><span class="info-label">色番</span><span>{{ order.color_code or '—' }}</span></div>
     <div class="info-item"><span class="info-label">希望納期</span>
-      <span>{{ order.desired_delivery or '—' }}</span>
+      <span>{{ order.desired_delivery | ymd or '—' }}</span>
     </div>
     <div class="info-item"><span class="info-label">受注数量</span><span><strong>{{ order.order_quantity | commas }}</strong></span></div>
     {% if order.material_delivery_memo %}
@@ -96,7 +96,7 @@
       {% for p in plans %}
       <tr id="plan-row-{{ p.id }}">
         <!-- 表示モード -->
-        <td class="plan-view-{{ p.id }}">{{ p.reply_date or '—' }}</td>
+        <td class="plan-view-{{ p.id }}">{{ p.reply_date | ymd or '—' }}</td>
         <td class="plan-view-{{ p.id }} text-right">{{ p.reply_quantity | commas }}</td>
         <td class="plan-view-{{ p.id }}">
           <button type="button" class="btn btn-sm btn-outline" onclick="startInlineEdit('plan', {{ p.id }})">編集</button>
@@ -156,9 +156,9 @@
       <tr id="rec-row-{{ r.id }}">
         <!-- 表示モード -->
         <td class="rec-view-{{ r.id }}">{{ r.mold_number or '—' }}</td>
-        <td class="rec-view-{{ r.id }}">{{ r.actual_date or '—' }}</td>
+        <td class="rec-view-{{ r.id }}">{{ r.actual_date | ymd or '—' }}</td>
         <td class="rec-view-{{ r.id }} text-right">{{ r.actual_quantity | commas }}</td>
-        <td class="rec-view-{{ r.id }} text-muted">{{ r.registered_at }}</td>
+        <td class="rec-view-{{ r.id }} text-muted">{{ r.registered_at | ymd }}</td>
         <td class="rec-view-{{ r.id }}">
           <button type="button" class="btn btn-sm btn-outline" onclick="startInlineEdit('rec', {{ r.id }})">編集</button>
           <form method="post" action="{{ url_for('record_delete', order_id=order.id, rec_id=r.id) }}"
@@ -232,7 +232,7 @@ function confirmOrderDelete() {
     <tbody>
       {% for l in logs %}
       <tr>
-        <td class="text-muted">{{ l.changed_at }}</td>
+        <td class="text-muted">{{ l.changed_at | ymd }}</td>
         <td><span class="badge badge-log">{{ l.change_type }}</span></td>
         <td>{{ l.change_detail }}</td>
         <td>{{ l.operator or '—' }}</td>

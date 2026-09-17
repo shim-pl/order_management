@@ -52,8 +52,8 @@
     </div>
     <div class="form-group">
       <label>受注数量 <span class="required">*</span></label>
-      <input type="number" name="order_quantity" required min="0"
-             value="{{ order.order_quantity if order else '' }}">
+      <input type="text" name="order_quantity" class="qty-input" required autocomplete="off"
+             value="{{ order.order_quantity | commas if order else '' }}">
     </div>
     <div class="form-group form-group-full">
       <label>材料納期メモ</label>

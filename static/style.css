@@ -95,6 +95,8 @@ body { font-family: "Noto Sans JP", "Yu Gothic", sans-serif; background: var(--b
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover { background: #f8fafc; }
 .table-footer td { background: #f8fafc; font-weight: 700; }
+/* 受注一覧: 管理No.ごとの区切りを黒線で明示する（最終行は既存ルールで線なし） */
+.order-table tbody tr td { border-bottom: 2px solid var(--text); }
 .empty-row { text-align: center; color: var(--text-muted); padding: 24px; }
 .text-right { text-align: right; }
 .text-muted { color: var(--text-muted); font-size: 12px; }
