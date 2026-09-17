@@ -111,7 +111,8 @@
           <form method="post" action="{{ url_for('plan_edit', order_id=order.id, plan_id=p.id) }}"
                 class="inline-edit-form">
             <input type="date" name="reply_date" value="{{ p.reply_date or '' }}" required>
-            <input type="number" name="reply_quantity" value="{{ p.reply_quantity }}" min="0" required style="width:110px">
+            <input type="text" name="reply_quantity" class="qty-input" value="{{ p.reply_quantity | commas }}"
+                   required autocomplete="off" style="width:130px">
             <input type="text" name="operator" placeholder="記録者" style="width:90px">
             <button type="submit" class="btn btn-sm btn-primary">保存</button>
             <button type="button" class="btn btn-sm btn-secondary" onclick="cancelInlineEdit('plan', {{ p.id }})">取消</button>
@@ -135,7 +136,8 @@
     <summary>＋ 納品スケジュールを追加</summary>
     <form method="post" action="{{ url_for('plan_add', order_id=order.id) }}" class="inline-form">
       <input type="date" name="reply_date" required>
-      <input type="number" name="reply_quantity" placeholder="数量" min="1" required>
+      <input type="text" name="reply_quantity" class="qty-input" placeholder="数量（例：400*3）"
+             required autocomplete="off">
       <input type="text" name="operator" placeholder="記録者">
       <button type="submit" class="btn btn-primary btn-sm">追加</button>
     </form>
@@ -171,7 +173,8 @@
                 class="inline-edit-form">
             <input type="text" name="mold_number" value="{{ r.mold_number or '' }}" placeholder="金型番号" style="width:110px">
             <input type="date" name="actual_date" value="{{ r.actual_date or '' }}" required>
-            <input type="number" name="actual_quantity" value="{{ r.actual_quantity }}" min="0" required style="width:110px">
+            <input type="text" name="actual_quantity" class="qty-input" value="{{ r.actual_quantity | commas }}"
+                   required autocomplete="off" style="width:130px">
             <input type="text" name="operator" placeholder="記録者" style="width:90px">
             <button type="submit" class="btn btn-sm btn-primary">保存</button>
             <button type="button" class="btn btn-sm btn-secondary" onclick="cancelInlineEdit('rec', {{ r.id }})">取消</button>
@@ -197,7 +200,8 @@
     <form method="post" action="{{ url_for('record_add', order_id=order.id) }}" class="inline-form">
       <input type="text" name="mold_number" placeholder="金型番号（任意）" style="width:130px">
       <input type="date" name="actual_date" required>
-      <input type="number" name="actual_quantity" placeholder="数量" min="1" required>
+      <input type="text" name="actual_quantity" class="qty-input" placeholder="数量（例：400*3）"
+             required autocomplete="off">
       <input type="text" name="operator" placeholder="記録者">
       <button type="submit" class="btn btn-primary btn-sm">登録</button>
     </form>

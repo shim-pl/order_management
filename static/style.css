@@ -206,6 +206,13 @@ body { font-family: "Noto Sans JP", "Yu Gothic", sans-serif; background: var(--b
   font-size: 13px; background: #eff6ff;
 }
 
+/* ── Quantity input (四則演算 + カンマ表示) ── */
+.qty-input { text-align: right; font-variant-numeric: tabular-nums; }
+.qty-input.qty-invalid { border-color: var(--danger); background: #fef2f2; }
+.qty-hint { font-size: 12px; color: var(--primary); font-weight: 600; white-space: nowrap; align-self: center; }
+.qty-hint.error { color: var(--danger); font-weight: 500; }
+.qty-hint:empty { display: none; }
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 .empty-note { color: var(--text-muted); font-size: 13px; padding: 8px 0; }

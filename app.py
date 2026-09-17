@@ -7,6 +7,9 @@ from werkzeug.security import check_password_hash
 from database import get_db, init_db
 from datetime import date
 import os
+import re
+import ast
+import operator
 import json
 import csv
 import io
@@ -84,6 +87,68 @@ def commas(value):
 @app.context_processor
 def inject_today():
     return {"today": date.today().isoformat()}
+
+
+# ──────────────────────────────────────────────
+# 数量入力のパース（カンマ区切り・四則演算式に対応）
+# ──────────────────────────────────────────────
+# 全角文字・記号は半角に寄せてから解釈する
+_ZEN_TO_HAN = str.maketrans({
+    "０": "0", "１": "1", "２": "2", "３": "3", "４": "4",
+    "５": "5", "６": "6", "７": "7", "８": "8", "９": "9",
+    "＋": "+", "－": "-", "−": "-", "―": "-", "ー": "-",
+    "＊": "*", "×": "*", "／": "/", "÷": "/",
+    "（": "(", "）": ")", "．": ".", "，": ",", "、": ",", "　": " ",
+})
+
+_ALLOWED_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def _eval_node(node):
+    """許可した四則演算ノードのみを評価する（eval は使わない）。"""
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise ValueError("数量には数字と四則演算記号のみ使用できます。")
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_OPS:
+        return _ALLOWED_OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_OPS:
+        return _ALLOWED_OPS[type(node.op)](_eval_node(node.operand))
+    raise ValueError("数量の式に使用できない記号が含まれています。")
+
+
+def parse_quantity(raw, field_label="数量", allow_zero=True):
+    """'1,200' や '400*3' のような入力を整数に変換する。"""
+    if raw is None:
+        raw = ""
+    s = str(raw).translate(_ZEN_TO_HAN).replace(",", "").strip()
+    if not s:
+        return 0
+    if not re.fullmatch(r"[0-9+\-*/().\s]+", s):
+        raise ValueError(f"{field_label}には数字と四則演算記号（+ - * / ()）のみ使用できます。")
+    try:
+        value = _eval_node(ast.parse(s, mode="eval").body)
+    except ZeroDivisionError:
+        raise ValueError(f"{field_label}の計算式で 0 による除算が行われました。")
+    except ValueError:
+        raise
+    except Exception:
+        raise ValueError(f"{field_label}の計算式を解釈できませんでした: {raw}")
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError(f"{field_label}の計算結果が正しくありません。")
+    result = int(round(value))
+    if result < 0:
+        raise ValueError(f"{field_label}にマイナスの値は指定できません。")
+    if not allow_zero and result == 0:
+        raise ValueError(f"{field_label}は1以上を指定してください。")
+    return result
 
 
 # ──────────────────────────────────────────────
@@ -236,12 +301,17 @@ def order_edit(order_id):
 @login_required
 def plan_add(order_id):
     f = request.form
+    try:
+        qty = parse_quantity(f.get("reply_quantity"), "回答数量", allow_zero=False)
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("order_detail", order_id=order_id))
     conn = get_db()
     conn.execute("INSERT INTO delivery_plans (order_id, reply_date, reply_quantity) VALUES (?,?,?)",
-                 (order_id, f["reply_date"], int(f["reply_quantity"] or 0)))
+                 (order_id, f["reply_date"], qty))
     conn.commit()
     _log(conn, order_id, "納品計画追加",
-         f"回答納期: {f['reply_date']} 数量: {f['reply_quantity']}", f.get("operator", ""))
+         f"回答納期: {f['reply_date']} 数量: {qty:,}", f.get("operator", ""))
     conn.commit()
     conn.close()
     return redirect(url_for("order_detail", order_id=order_id))
@@ -251,12 +321,17 @@ def plan_add(order_id):
 @login_required
 def plan_edit(order_id, plan_id):
     f = request.form
+    try:
+        qty = parse_quantity(f.get("reply_quantity"), "回答数量")
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("order_detail", order_id=order_id))
     conn = get_db()
     conn.execute("UPDATE delivery_plans SET reply_date=?, reply_quantity=? WHERE id=? AND order_id=?",
-                 (f["reply_date"], int(f["reply_quantity"] or 0), plan_id, order_id))
+                 (f["reply_date"], qty, plan_id, order_id))
     conn.commit()
     _log(conn, order_id, "納品計画編集",
-         f"計画ID:{plan_id} 回答納期:{f['reply_date']} 数量:{f['reply_quantity']}",
+         f"計画ID:{plan_id} 回答納期:{f['reply_date']} 数量:{qty:,}",
          f.get("operator", ""))
     conn.commit()
     conn.close()
@@ -282,15 +357,19 @@ def plan_delete(order_id, plan_id):
 @login_required
 def record_add(order_id):
     f = request.form
+    try:
+        qty = parse_quantity(f.get("actual_quantity"), "実績数量", allow_zero=False)
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("order_detail", order_id=order_id))
     conn = get_db()
-    qty = int(f["actual_quantity"] or 0)
     mold = f.get("mold_number", "").strip()
     conn.execute(
         "INSERT INTO delivery_records (order_id, mold_number, actual_date, actual_quantity) VALUES (?,?,?,?)",
         (order_id, mold or None, f["actual_date"], qty))
     conn.commit()
     _log(conn, order_id, "納品実績入力",
-         f"金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{qty}", f.get("operator", ""))
+         f"金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{qty:,}", f.get("operator", ""))
     conn.commit()
 
     # 合計が受注数量と一致したら自動完了
@@ -312,14 +391,19 @@ def record_add(order_id):
 @login_required
 def record_edit(order_id, rec_id):
     f = request.form
+    try:
+        qty = parse_quantity(f.get("actual_quantity"), "実績数量")
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("order_detail", order_id=order_id))
     conn = get_db()
     mold = f.get("mold_number", "").strip()
     conn.execute(
         "UPDATE delivery_records SET mold_number=?, actual_date=?, actual_quantity=? WHERE id=? AND order_id=?",
-        (mold or None, f["actual_date"], int(f["actual_quantity"] or 0), rec_id, order_id))
+        (mold or None, f["actual_date"], qty, rec_id, order_id))
     conn.commit()
     _log(conn, order_id, "納品実績編集",
-         f"実績ID:{rec_id} 金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{f['actual_quantity']}",
+         f"実績ID:{rec_id} 金型:{mold or '—'} 実績納期:{f['actual_date']} 数量:{qty:,}",
          f.get("operator", ""))
     conn.commit()
 
